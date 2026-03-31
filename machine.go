@@ -1204,6 +1204,27 @@ func (m *Machine) CreateBalloon(ctx context.Context, amountMib int64, deflateOnO
 	return nil
 }
 
+// CreateBalloonWithOpts creates a balloon device using BalloonOpt functional
+// options to configure fields like FreePageReporting that aren't exposed as
+// direct parameters.
+func (m *Machine) CreateBalloonWithOpts(ctx context.Context, amountMib int64, deflateOnOom bool, statsPollingIntervals int64, opts ...BalloonOpt) error {
+	balloon := models.Balloon{
+		AmountMib:             &amountMib,
+		DeflateOnOom:          &deflateOnOom,
+		StatsPollingIntervals: statsPollingIntervals,
+	}
+	for _, opt := range opts {
+		opt(&balloon)
+	}
+	_, err := m.client.PutBalloon(ctx, &balloon)
+	if err != nil {
+		m.logger.Errorf("Create balloon device failed: %s", err)
+		return err
+	}
+	m.logger.Debug("Created balloon device successfully")
+	return nil
+}
+
 // GetBalloonConfig gets the current balloon device configuration.
 func (m *Machine) GetBalloonConfig(ctx context.Context) (models.Balloon, error) {
 	var balloonConfig models.Balloon
