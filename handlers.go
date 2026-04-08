@@ -283,11 +283,11 @@ var ConfigMmdsHandler = Handler{
 
 // NewCreateBalloonHandler is a named handler that put a memory balloon into the
 // firecracker process.
-func NewCreateBalloonHandler(amountMib int64, deflateOnOom bool, StatsPollingIntervals int64) Handler {
+func NewCreateBalloonHandler(amountMib int64, deflateOnOom bool, statsPollingIntervals int64, opts ...BalloonOpt) Handler {
 	return Handler{
 		Name: CreateBalloonHandlerName,
 		Fn: func(ctx context.Context, m *Machine) error {
-			return m.CreateBalloon(ctx, amountMib, deflateOnOom, StatsPollingIntervals)
+			return m.CreateBalloonWithOpts(ctx, amountMib, deflateOnOom, statsPollingIntervals, opts...)
 		},
 	}
 }

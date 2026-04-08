@@ -27,7 +27,7 @@ type BalloonOpt func(*models.Balloon)
 // NewBalloonDevice will return a new BalloonDevice.
 func NewBalloonDevice(amountMib int64, deflateOnOom bool, opts ...BalloonOpt) BalloonDevice {
 	b := models.Balloon{
-		AmountMib:     &amountMib,
+		AmountMib:    &amountMib,
 		DeflateOnOom: &deflateOnOom,
 	}
 
@@ -47,6 +47,15 @@ func (b BalloonDevice) Build() models.Balloon {
 func WithStatsPollingIntervals(statsPollingIntervals int64) BalloonOpt {
 	return func(d *models.Balloon) {
 		d.StatsPollingIntervals = statsPollingIntervals
+	}
+}
+
+// WithFreePageReporting is a functional option which enables free page reporting
+// on the balloon device. When enabled, the guest kernel reports freed pages to the
+// hypervisor, which MADV_DONTNEEDs them to reduce host RSS.
+func WithFreePageReporting(enabled bool) BalloonOpt {
+	return func(d *models.Balloon) {
+		d.FreePageReporting = enabled
 	}
 }
 

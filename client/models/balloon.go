@@ -40,6 +40,12 @@ type Balloon struct {
 
 	// Interval in seconds between refreshing statistics. A non-zero value will enable the statistics. Defaults to 0.
 	StatsPollingIntervals int64 `json:"stats_polling_interval_s,omitempty"`
+
+	// Whether the balloon device should enable free page reporting. If enabled,
+	// the guest kernel will report freed pages to the hypervisor, which will
+	// MADV_DONTNEED them to reduce host RSS. Requires CONFIG_PAGE_REPORTING=y
+	// in the guest kernel and Firecracker >= v1.14.0.
+	FreePageReporting bool `json:"free_page_reporting,omitempty"`
 }
 
 // Validate validates this balloon
