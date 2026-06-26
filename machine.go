@@ -1029,6 +1029,22 @@ func (m *Machine) UpdateGuestDrive(ctx context.Context, driveID, pathOnHost stri
 	return nil
 }
 
+// UpdateGuestDriveConfig triggers Firecracker to re-read the device config of a
+// vhost-user-block drive from its backend and fire a virtio config-change
+// interrupt so the guest revalidates capacity online. It is the late-hydration
+// trigger: boot with an un-hydrated proxy backing the socket, bind the real
+// backing store, then call this to make the guest pick up the real geometry. The
+// PATCH carries only the drive_id (no path_on_host, no rate limiter).
+func (m *Machine) UpdateGuestDriveConfig(ctx context.Context, driveID string, opts ...PatchGuestDriveByIDOpt) error {
+	if _, err := m.client.PatchGuestDriveConfigByID(ctx, driveID, opts...); err != nil {
+		m.logger.Errorf("PatchGuestDriveConfig failed: %v", err)
+		return err
+	}
+
+	m.logger.Printf("PatchGuestDriveConfig successful")
+	return nil
+}
+
 func (m *Machine) DescribeInstanceInfo(ctx context.Context) (models.InstanceInfo, error) {
 	var instanceInfo models.InstanceInfo
 	resp, err := m.client.GetInstanceInfo(ctx)

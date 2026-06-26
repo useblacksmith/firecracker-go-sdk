@@ -29,5 +29,6 @@ type MachineIface interface {
 	Wait(context.Context) error
 	SetMetadata(context.Context, interface{}) error
 	UpdateGuestDrive(context.Context, string, string, ...PatchGuestDriveByIDOpt) error
+	UpdateGuestDriveConfig(context.Context, string, ...PatchGuestDriveByIDOpt) error
 	UpdateGuestNetworkInterfaceRateLimit(context.Context, string, RateLimiterSet, ...PatchGuestNetworkInterfaceByIDOpt) error
 }
