@@ -156,6 +156,66 @@ func TestDrivesBuilderAddDrive(t *testing.T) {
 	}
 }
 
+func TestDrivesBuilderAddVhostUserDrive(t *testing.T) {
+	rootPath := "/root/path"
+	socket := "/run/vhost/drive.sock"
+	expectedDrives := []models.Drive{
+		{
+			DriveID:      String("0"),
+			Socket:       &socket,
+			IsRootDevice: Bool(false),
+			IsReadOnly:   Bool(false),
+		},
+		{
+			DriveID:      String(rootDriveName),
+			PathOnHost:   &rootPath,
+			IsRootDevice: Bool(true),
+			IsReadOnly:   Bool(false),
+		},
+	}
+
+	drives := NewDrivesBuilder(rootPath).
+		AddVhostUserDrive(socket, false).
+		Build()
+	if e, a := expectedDrives, drives; !reflect.DeepEqual(e, a) {
+		t.Errorf("expected drives %+v, but received %+v", e, a)
+	}
+}
+
+func TestDrivesBuilderAddVhostUserDriveWithOpts(t *testing.T) {
+	rootPath := "/root/path"
+	socket := "/run/vhost/drive.sock"
+	partuuid := "0eaa91a0-01"
+	// Only the WithVhost* opts are accepted; PathOnHost/CacheType/IoEngine are
+	// not expressible on a vhost-user drive, so the result is always valid.
+	expectedDrives := []models.Drive{
+		{
+			DriveID:      String("vhost0"),
+			Socket:       &socket,
+			IsRootDevice: Bool(false),
+			IsReadOnly:   Bool(true),
+			Partuuid:     partuuid,
+		},
+		{
+			DriveID:      String(rootDriveName),
+			PathOnHost:   &rootPath,
+			IsRootDevice: Bool(true),
+			IsReadOnly:   Bool(false),
+		},
+	}
+
+	drives := NewDrivesBuilder(rootPath).
+		AddVhostUserDrive(socket, false,
+			WithVhostDriveID("vhost0"),
+			WithVhostReadOnly(true),
+			WithVhostPartuuid(partuuid),
+		).
+		Build()
+	if e, a := expectedDrives, drives; !reflect.DeepEqual(e, a) {
+		t.Errorf("expected drives %+v, but received %+v", e, a)
+	}
+}
+
 func TestDrivesBuilderWithIoEngine(t *testing.T) {
 	expectedPath := "/path/to/rootfs"
 	expectedVal := "Async"

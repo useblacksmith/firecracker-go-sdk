@@ -71,6 +71,34 @@ func (b DrivesBuilder) AddDrive(path string, readOnly bool, opts ...DriveOpt) Dr
 	return b
 }
 
+// VhostUserDriveOpt represents an optional function used to customize a
+// vhost-user-block drive. It is a distinct type from DriveOpt so that options
+// only valid for path-backed drives (e.g. WithCacheType, WithIoEngine) cannot
+// be applied to a vhost-user drive at compile time. Socket is mutually
+// exclusive with PathOnHost/CacheType/IoEngine in the Firecracker API.
+type VhostUserDriveOpt func(*models.Drive)
+
+// AddVhostUserDrive will add a new vhost-user-block drive to the given builder.
+// A vhost-user drive is backed by a vhost-user-block backend listening on the
+// given unix socket instead of a host file path. Only the WithVhost* options
+// are accepted, so PathOnHost/CacheType/IoEngine can never be set on such a
+// drive.
+func (b DrivesBuilder) AddVhostUserDrive(socket string, readOnly bool, opts ...VhostUserDriveOpt) DrivesBuilder {
+	drive := models.Drive{
+		DriveID:      String(strconv.Itoa(len(b.drives))),
+		Socket:       &socket,
+		IsRootDevice: Bool(false),
+		IsReadOnly:   &readOnly,
+	}
+
+	for _, opt := range opts {
+		opt(&drive)
+	}
+
+	b.drives = append(b.drives, drive)
+	return b
+}
+
 // Build will construct an array of drives with the root drive at the very end.
 func (b DrivesBuilder) Build() []models.Drive {
 	return append(b.drives, b.rootDrive)
@@ -117,5 +145,34 @@ func WithCacheType(cacheType string) DriveOpt {
 func WithIoEngine(ioEngine string) DriveOpt {
 	return func(d *models.Drive) {
 		d.IoEngine = String(ioEngine)
+	}
+}
+
+// WithVhostDriveID sets the ID of a vhost-user-block drive.
+func WithVhostDriveID(id string) VhostUserDriveOpt {
+	return func(d *models.Drive) {
+		d.DriveID = String(id)
+	}
+}
+
+// WithVhostReadOnly sets a vhost-user-block drive read-only.
+func WithVhostReadOnly(flag bool) VhostUserDriveOpt {
+	return func(d *models.Drive) {
+		d.IsReadOnly = Bool(flag)
+	}
+}
+
+// WithVhostPartuuid sets the unique ID of the boot partition on a
+// vhost-user-block drive.
+func WithVhostPartuuid(uuid string) VhostUserDriveOpt {
+	return func(d *models.Drive) {
+		d.Partuuid = uuid
+	}
+}
+
+// WithVhostRateLimiter sets the rate limiter of a vhost-user-block drive.
+func WithVhostRateLimiter(limiter models.RateLimiter) VhostUserDriveOpt {
+	return func(d *models.Drive) {
+		d.RateLimiter = &limiter
 	}
 }

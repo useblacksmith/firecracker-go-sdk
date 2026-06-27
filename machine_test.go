@@ -887,6 +887,41 @@ func testShutdown(ctx context.Context, t *testing.T, m *Machine) {
 	}
 }
 
+func TestUpdateGuestDriveConfig(t *testing.T) {
+	var captured *models.PartialDrive
+	opsClient := fctesting.MockClient{
+		PatchGuestDriveByIDFn: func(params *ops.PatchGuestDriveByIDParams) (*ops.PatchGuestDriveByIDNoContent, error) {
+			captured = params.Body
+			return &ops.PatchGuestDriveByIDNoContent{}, nil
+		},
+	}
+
+	m := Machine{
+		client: NewClient("/path/to/socket", fctesting.NewLogEntry(t), true, WithOpsClient(&opsClient)),
+		logger: fctesting.NewLogEntry(t),
+	}
+
+	if err := m.UpdateGuestDriveConfig(context.Background(), "2"); err != nil {
+		t.Fatalf("unexpected error from UpdateGuestDriveConfig: %v", err)
+	}
+
+	if captured == nil {
+		t.Fatal("expected PatchGuestDriveByID to be called")
+	}
+	if captured.DriveID == nil || *captured.DriveID != "2" {
+		t.Errorf("expected drive_id %q, got %v", "2", captured.DriveID)
+	}
+	// A vhost-user config refresh must carry only the drive_id: path_on_host and
+	// the rate limiter must be omitted so Firecracker re-reads the backend config
+	// instead of performing a host-path hot-swap.
+	if captured.PathOnHost != "" {
+		t.Errorf("expected empty path_on_host, got %q", captured.PathOnHost)
+	}
+	if captured.RateLimiter != nil {
+		t.Errorf("expected nil rate_limiter, got %+v", captured.RateLimiter)
+	}
+}
+
 func TestWaitForSocket(t *testing.T) {
 	okClient := fctesting.MockClient{}
 	errClient := fctesting.MockClient{

@@ -431,6 +431,30 @@ func (f *Client) PatchGuestDriveByID(ctx context.Context, driveID, pathOnHost st
 	return f.client.Operations.PatchGuestDriveByID(params)
 }
 
+// PatchGuestDriveConfigByID is a wrapper for the swagger generated client that
+// issues a drive_id-only PATCH /drives/{id}. Firecracker treats a partial drive
+// carrying neither path_on_host nor a rate limiter as a request to re-read the
+// device config from a vhost-user-block backend over GET_CONFIG, firing a virtio
+// config-change interrupt so the guest revalidates capacity online. It is the
+// late-hydration trigger for a vhost-user drive whose backend became ready after
+// boot.
+func (f *Client) PatchGuestDriveConfigByID(ctx context.Context, driveID string, opts ...PatchGuestDriveByIDOpt) (*ops.PatchGuestDriveByIDNoContent, error) {
+	params := ops.NewPatchGuestDriveByIDParams()
+	params.SetContext(ctx)
+
+	partialDrive := models.PartialDrive{
+		DriveID: &driveID,
+	}
+	params.SetBody(&partialDrive)
+	params.DriveID = driveID
+
+	for _, opt := range opts {
+		opt(params)
+	}
+
+	return f.client.Operations.PatchGuestDriveByID(params)
+}
+
 // PutBalloonOpt is a functional option to be used for the
 // PutBalloon API in setting any additional optional fields.
 type PutBalloonOpt func(*ops.PutBalloonParams)

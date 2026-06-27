@@ -718,6 +718,14 @@ definitions:
       stats_polling_interval_s:
         type: integer
         description: Interval in seconds between refreshing statistics. A non-zero value will enable the statistics. Defaults to 0.
+      free_page_reporting:
+        type: boolean
+        description:
+          Whether the balloon device should enable free page reporting. If
+          enabled, the guest kernel will report freed pages to the hypervisor,
+          which will MADV_DONTNEED them to reduce host RSS. Requires
+          CONFIG_PAGE_REPORTING=y in the guest kernel and Firecracker >=
+          v1.14.0.
 
   BalloonUpdate:
     type: object
@@ -856,9 +864,7 @@ definitions:
     type: object
     required:
       - drive_id
-      - is_read_only
       - is_root_device
-      - path_on_host
     properties:
       drive_id:
         type: string
@@ -870,6 +876,11 @@ definitions:
         default: "Unsafe"
       is_read_only:
         type: boolean
+        x-nullable: true
+        description:
+          Is block read only.
+          This field is required for virtio-block config and should be omitted
+          for vhost-user-block configuration.
       is_root_device:
         type: boolean
       partuuid:
@@ -880,7 +891,11 @@ definitions:
           field is true.
       path_on_host:
         type: string
-        description: Host level path for the guest drive
+        x-nullable: true
+        description:
+          Host level path for the guest drive.
+          This field is required for virtio-block config and should be omitted
+          for vhost-user-block configuration.
       rate_limiter:
         $ref: "#/definitions/RateLimiter"
       io_engine:
@@ -888,8 +903,17 @@ definitions:
         description:
           Type of the IO engine used by the device. "Async" is supported on
           host kernels newer than 5.10.51.
+          This field is optional for virtio-block config and should be omitted
+          for vhost-user-block configuration.
         enum: ["Sync", "Async"]
         default: "Sync"
+      socket:
+        type: string
+        x-nullable: true
+        description:
+          Path to the socket of vhost-user-block backend.
+          This field is required for vhost-user-block config and should be
+          omitted for virtio-block configuration.
 
   Error:
     type: object
