@@ -194,9 +194,8 @@ func (cfg *Config) Validate() error {
 
 	for _, drive := range cfg.Drives {
 		if BoolValue(drive.IsRootDevice) {
-			rootPath := StringValue(drive.PathOnHost)
-			if _, err := os.Stat(rootPath); err != nil {
-				return fmt.Errorf("failed to stat host drive path, %q: %v", rootPath, err)
+			if err := validateDriveBacking(drive); err != nil {
+				return err
 			}
 
 			break
@@ -225,9 +224,8 @@ func (cfg *Config) ValidateLoadSnapshot() error {
 	}
 
 	for _, drive := range cfg.Drives {
-		rootPath := StringValue(drive.PathOnHost)
-		if _, err := os.Stat(rootPath); err != nil {
-			return fmt.Errorf("failed to stat drive path, %q: %v", rootPath, err)
+		if err := validateDriveBacking(drive); err != nil {
+			return err
 		}
 	}
 
@@ -243,6 +241,25 @@ func (cfg *Config) ValidateLoadSnapshot() error {
 		return err
 	}
 
+	return nil
+}
+
+// validateDriveBacking checks that the host-side backing of a drive exists:
+// the vhost-user socket for a vhost-user-block drive, the image path
+// otherwise.
+func validateDriveBacking(drive models.Drive) error {
+	if drive.Socket != nil {
+		socket := StringValue(drive.Socket)
+		if _, err := os.Stat(socket); err != nil {
+			return fmt.Errorf("failed to stat drive vhost-user socket, %q: %v", socket, err)
+		}
+		return nil
+	}
+
+	path := StringValue(drive.PathOnHost)
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("failed to stat host drive path, %q: %v", path, err)
+	}
 	return nil
 }
 
