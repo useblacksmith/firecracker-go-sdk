@@ -132,6 +132,79 @@ func TestNewMachine(t *testing.T) {
 	}
 }
 
+// TestConfigValidateDriveBacking checks that Validate and
+// ValidateLoadSnapshot stat the vhost-user socket of a vhost-user-block drive
+// and the host path of a path-backed drive.
+func TestConfigValidateDriveBacking(t *testing.T) {
+	dir := t.TempDir()
+	existing := func(name string) string {
+		p := filepath.Join(dir, name)
+		require.NoError(t, os.WriteFile(p, nil, 0600))
+		return p
+	}
+	kernel := existing("vmlinux")
+	image := existing("root.img")
+	socket := existing("vhost.sock")
+	missing := filepath.Join(dir, "missing")
+
+	cases := []struct {
+		name   string
+		drive  models.Drive
+		errSub string
+	}{
+		{
+			name:  "path-backed root exists",
+			drive: models.Drive{DriveID: String("root"), IsRootDevice: Bool(true), PathOnHost: String(image)},
+		},
+		{
+			name:   "path-backed root missing",
+			drive:  models.Drive{DriveID: String("root"), IsRootDevice: Bool(true), PathOnHost: String(missing)},
+			errSub: "failed to stat host drive path",
+		},
+		{
+			name:  "vhost-user root socket exists",
+			drive: models.Drive{DriveID: String("root"), IsRootDevice: Bool(true), Socket: String(socket)},
+		},
+		{
+			name:   "vhost-user root socket missing",
+			drive:  models.Drive{DriveID: String("root"), IsRootDevice: Bool(true), Socket: String(missing)},
+			errSub: "failed to stat drive vhost-user socket",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				SocketPath:      filepath.Join(dir, tc.name+".api.sock"),
+				KernelImagePath: kernel,
+				Drives:          []models.Drive{tc.drive},
+				MachineCfg: models.MachineConfiguration{
+					VcpuCount:  Int64(1),
+					MemSizeMib: Int64(100),
+				},
+				Snapshot: SnapshotConfig{
+					MemFilePath:  existing(tc.name + ".mem"),
+					SnapshotPath: existing(tc.name + ".snap"),
+				},
+			}
+			for _, validate := range []struct {
+				name string
+				fn   func() error
+			}{
+				{name: "Validate", fn: cfg.Validate},
+				{name: "ValidateLoadSnapshot", fn: cfg.ValidateLoadSnapshot},
+			} {
+				err := validate.fn()
+				if tc.errSub == "" {
+					require.NoError(t, err, validate.name)
+					continue
+				}
+				require.Error(t, err, validate.name)
+				require.Contains(t, err.Error(), tc.errSub, validate.name)
+			}
+		})
+	}
+}
+
 func TestJailerMicroVMExecution(t *testing.T) {
 	fctesting.RequiresKVM(t)
 	fctesting.RequiresRoot(t)
