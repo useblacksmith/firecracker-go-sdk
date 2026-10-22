@@ -1749,6 +1749,38 @@ func TestWaitWithNoSocket(t *testing.T) {
 	}
 }
 
+func TestStopVMMAfterSocketTimeout(t *testing.T) {
+	t.Setenv(firecrackerInitTimeoutEnv, "1")
+	ctx := context.Background()
+
+	socketPath := filepath.Join(testDataPath, t.Name())
+	defer os.Remove(socketPath)
+	cfg := createValidConfig(t, socketPath)
+
+	m, err := NewMachine(ctx, cfg, WithProcessRunner(exec.Command("sleep", "60")))
+	require.NoError(t, err)
+
+	err = m.Start(ctx)
+	require.Error(t, err, "Start() reports an error")
+
+	pid, err := m.PID()
+	require.NoError(t, err, "PID() reports the process that is still running")
+	require.NoError(t, syscall.Kill(pid, 0))
+
+	stopped := make(chan error, 1)
+	go func() { stopped <- m.StopVMM() }()
+	select {
+	case err := <-stopped:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("StopVMM() did not return after Start() timed out waiting for the API socket")
+	}
+
+	_, err = m.PID()
+	require.Error(t, err, "PID() reports an error once the process is reaped")
+	require.ErrorIs(t, syscall.Kill(pid, 0), syscall.ESRCH)
+}
+
 type machineConfigOpt func(c *Config)
 
 func withRootDrive(rootfs string) machineConfigOpt {
