@@ -11,11 +11,7 @@ jobs:
   build:
     strategy:
       matrix:
-<<<<<<< HEAD
         go: ['1.26', '1.27']
-=======
-        go: ['1.26', '1.27']
->>>>>>> d629759 (go.mod: bump go directive to 1.26)
         os: ['ubuntu-22.04']
       fail-fast: false
     name: ${{ matrix.os }} / Go ${{ matrix.go }}
