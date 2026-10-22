@@ -1749,6 +1749,56 @@ func TestWaitWithNoSocket(t *testing.T) {
 	}
 }
 
+func TestStopVMMAfterSocketTimeout(t *testing.T) {
+	t.Setenv(firecrackerInitTimeoutEnv, "1")
+	ctx := context.Background()
+	dir := t.TempDir()
+
+	// newMachine returns a Machine that only starts its VMM, a stand-in
+	// process, and talks to a mock API.
+	newMachine := func(socketPath string) *Machine {
+		m, err := NewMachine(ctx, Config{SocketPath: socketPath},
+			WithProcessRunner(exec.Command("sleep", "60")),
+			WithClient(NewClient(socketPath, fctesting.NewLogEntry(t), true, WithOpsClient(&fctesting.MockClient{}))))
+		require.NoError(t, err)
+		m.Handlers.Validation = HandlerList{}
+		m.Handlers.FcInit = HandlerList{}.Append(StartVMMHandler)
+		return m
+	}
+
+	// The stand-in never creates the API socket, so Start times out.
+	m := newMachine(filepath.Join(dir, "timeout.sock"))
+	err := m.Start(ctx)
+	require.Error(t, err, "Start() reports an error")
+
+	pid, err := m.PID()
+	require.NoError(t, err, "PID() reports the process that is still running")
+	require.NoError(t, syscall.Kill(pid, 0))
+
+	stopped := make(chan error, 1)
+	go func() { stopped <- m.StopVMM() }()
+	select {
+	case err := <-stopped:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("StopVMM() did not return after Start() timed out waiting for the API socket")
+	}
+
+	_, err = m.PID()
+	require.Error(t, err, "PID() reports an error once the process is reaped")
+	require.ErrorIs(t, syscall.Kill(pid, 0), syscall.ESRCH)
+
+	// A later VMM starts and stops normally.
+	nextSocket := filepath.Join(dir, "next.sock")
+	require.NoError(t, os.WriteFile(nextSocket, nil, 0o600))
+	next := newMachine(nextSocket)
+	require.NoError(t, next.Start(ctx))
+	nextPID, err := next.PID()
+	require.NoError(t, err)
+	require.NoError(t, next.StopVMM())
+	require.ErrorIs(t, syscall.Kill(nextPID, 0), syscall.ESRCH)
+}
+
 type machineConfigOpt func(c *Config)
 
 func withRootDrive(rootfs string) machineConfigOpt {
