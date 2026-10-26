@@ -33,6 +33,10 @@ type MachineConfiguration struct {
 	// cpu template
 	CPUTemplate CPUTemplate `json:"cpu_template,omitempty"`
 
+	// Which huge pages configuration (if any) should be used to back guest memory. "None" backs guest memory by 4K pages; "2M" backs it by 2MB hugetlbfs pages, which the host must have pre-allocated.
+	// Enum: [None 2M]
+	HugePages string `json:"huge_pages,omitempty"`
+
 	// Memory size of VM
 	// Required: true
 	MemSizeMib *int64 `json:"mem_size_mib"`

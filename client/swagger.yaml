@@ -1037,6 +1037,13 @@ definitions:
       mem_size_mib:
         type: integer
         description: Memory size of VM
+      huge_pages:
+        type: string
+        description: Which huge pages configuration (if any) should be used to back guest memory.
+        enum:
+          - None
+          - 2M
+        default: None
       track_dirty_pages:
         type: boolean
         description:
