@@ -7,7 +7,7 @@
 // that `go get` can mess with without affecting our main codebase.
 module hack
 
-go 1.11
+go 1.26
 
 require (
 	github.com/awslabs/tc-redirect-tap v0.0.0-20240408144842-496fddc89db6 // indirect
