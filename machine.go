@@ -295,6 +295,11 @@ type Machine struct {
 	cleanupFuncs []func() error
 	// cleanupCh is a channel that gets closed to notify cleanup cleanupFuncs has been called totally
 	cleanupCh chan struct{}
+
+	// processExitCh is closed once the VMM process has been reaped. Unlike
+	// exitCh, it is not closed when Start fails while the process is still
+	// running, so PID keeps reporting a live process until it is gone.
+	processExitCh chan struct{}
 }
 
 // Logger returns a logrus logger appropriate for logging hypervisor messages
@@ -308,7 +313,7 @@ func (m *Machine) PID() (int, error) {
 		return 0, fmt.Errorf("machine is not running")
 	}
 	select {
-	case <-m.exitCh:
+	case <-m.processExitCh:
 		return 0, fmt.Errorf("machine process has exited")
 	default:
 	}
@@ -379,9 +384,10 @@ func configureBuilder(builder VMCommandBuilder, cfg Config) VMCommandBuilder {
 // provided Config.
 func NewMachine(ctx context.Context, cfg Config, opts ...Opt) (*Machine, error) {
 	m := &Machine{
-		exitCh:     make(chan struct{}),
-		shutdownCh: make(chan struct{}),
-		cleanupCh:  make(chan struct{}),
+		exitCh:        make(chan struct{}),
+		shutdownCh:    make(chan struct{}),
+		cleanupCh:     make(chan struct{}),
+		processExitCh: make(chan struct{}),
 	}
 
 	if cfg.VMID == "" {
@@ -594,6 +600,7 @@ func (m *Machine) startVMM(ctx context.Context) error {
 
 		m.fatalErr = err
 		close(m.exitCh)
+		close(m.processExitCh)
 
 		return err
 	}
@@ -608,7 +615,10 @@ func (m *Machine) startVMM(ctx context.Context) error {
 		},
 	)
 
-	errCh := make(chan error)
+	// errCh is buffered so the wait goroutine can deliver the exit status and
+	// close cleanupCh even when nobody receives it, which happens when Start
+	// gives up waiting for the API socket.
+	errCh := make(chan error, 1)
 	go func() {
 		waitErr := m.cmd.Wait()
 
@@ -620,6 +630,7 @@ func (m *Machine) startVMM(ctx context.Context) error {
 			<-m.shutdownCh
 		}
 
+		close(m.processExitCh)
 		if waitErr != nil {
 			m.logger.Warnf("firecracker exited: %s", waitErr.Error())
 		} else {
