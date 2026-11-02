@@ -41,6 +41,9 @@ type MachineConfiguration struct {
 	// Required: true
 	MemSizeMib *int64 `json:"mem_size_mib"`
 
+	// Expose the host's performance monitoring unit (hardware performance counters) to the guest. Off by default: the VM is created with KVM's vPMU disabled. Only supported on x86_64. Requires a Blacksmith Firecracker build (>= v1.17.0-bs2).
+	Pmu *bool `json:"pmu,omitempty"`
+
 	// Flag for enabling/disabling simultaneous multithreading. Can be enabled only on x86.
 	Smt *bool `json:"smt,omitempty"`
 
